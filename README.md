@@ -1,31 +1,66 @@
-# untrading UN Token Contracts
+## Foundry
 
-https://untrading.org
+**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
 
-This repo contains the ERC20 UN Token and accompanying vesting contract.
+Foundry consists of:
 
-## Development
+-   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
+-   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
+-   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
+-   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
 
-Install dependencies with Forge:
+## Documentation
 
-```bash
-forge install
+https://book.getfoundry.sh/
+
+## Usage
+
+### Build
+
+```shell
+$ forge build
 ```
 
-Compile the contracts with:
+### Test
 
-```bash
-forge build
+```shell
+$ forge test
 ```
 
-## Testing
+### Format
 
-Test contracts with Forge:
-
-```bash
-forge test
+```shell
+$ forge fmt
 ```
 
-## Licensing
+### Gas Snapshots
 
-The contracts in this repo are unlicensed.
+```shell
+$ forge snapshot
+```
+
+### Anvil
+
+```shell
+$ anvil
+```
+
+### Deploy
+
+```shell
+$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+```
+
+### Cast
+
+```shell
+$ cast <subcommand>
+```
+
+### Help
+
+```shell
+$ forge --help
+$ anvil --help
+$ cast --help
+```
