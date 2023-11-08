@@ -1,33 +1,53 @@
 // SPDX-LICENSE-IDENTIFIER: GPL-3.0
 pragma solidity ^0.8.19;
 
+import { IUNSnapshotClaim } from "./interfaces/IUNSnapshotClaim.sol";
+
 import { ISablierV2LockupLinear } from "@sablier/v2-core/src/interfaces/ISablierV2LockupLinear.sol";
 import { Broker, LockupLinear } from "@sablier/v2-core/src/types/DataTypes.sol";
 import { ud60x18 } from "@sablier/v2-core/src/types/Math.sol";
 import { IERC20 } from "@sablier/v2-core/src/types/Tokens.sol";
 
-contract UNSnapshotClaim {
-    IERC20 public immutable UN;
+import { MerkleProofLib } from "solmate/utils/MerkleProofLib.sol";
 
-    bytes32 public immutable root;
+contract UNSnapshotClaim is IUNSnapshotClaim {
+    using MerkleProofLib for bytes32[];
 
+    address public immutable UN;
+    bytes32 public immutable merkleRoot;
     uint40 public immutable vestingPeriod;
+    address public immutable sablier;
 
-    ISablierV2LockupLinear public immutable sablier;
+    mapping(address => bool) public claimed; // TODO: Potentially adopt a bitmap - like in MerkleDistributor
+    mapping(address => uint256) public streamIds;
 
-    mapping(address => bool) public claimed;
-    mapping(address => uint256) public streams;
-
-    constructor(IERC20 _UN, bytes32 _root, uint40 _vestingPeriod, ISablierV2LockupLinear _sablier) {
+    constructor(address _UN, bytes32 _merkleRoot, uint40 _vestingPeriod, address _sablier) {
         UN = _UN;
-        root = _root;
+        merkleRoot = _merkleRoot;
         vestingPeriod = _vestingPeriod;
         sablier = _sablier;
 
-        UN.approve(address(sablier), type(uint256).max);
+        IERC20(UN).approve(address(sablier), type(uint256).max);
     }
 
-    function claim(uint256 amount, bytes32[] calldata proof) external returns (uint256 streamId) {
+    function claim(uint128 amount, bytes32[] calldata proof) external returns (uint256 streamId) {
+        require(!claimed[msg.sender], "Already claimed in this snapshot");
+        require(proof.verify(merkleRoot, keccak256(abi.encodePacked(msg.sender, amount))));
 
+        claimed[msg.sender] = true;
+
+        LockupLinear.CreateWithDurations memory params = LockupLinear.CreateWithDurations({
+            sender: address(this),
+            recipient: msg.sender,
+            asset: IERC20(UN),
+            totalAmount: amount,
+            cancelable: false,
+            durations: LockupLinear.Durations({ cliff: 0, total: vestingPeriod }),
+            broker: Broker({ account: address(0), fee: ud60x18(0) })
+        });
+
+        streamIds[msg.sender] = streamId = ISablierV2LockupLinear(sablier).createWithDurations(params);
+
+        emit Claimed(msg.sender, streamId, amount);
     }
 }
