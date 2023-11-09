@@ -10,7 +10,7 @@ import { IERC20 } from "@sablier/v2-core/src/types/Tokens.sol";
 
 import { MerkleProofLib } from "solmate/utils/MerkleProofLib.sol";
 
-contract UNSnapshotClaim is IUNSnapshotClaim {
+contract UNSnapshotClaim is IUNSnapshotClaim { // TODO: Potentially add a deadline, add tests and scripts
     using MerkleProofLib for bytes32[];
 
     address public immutable UN;
