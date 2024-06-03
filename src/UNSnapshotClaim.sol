@@ -32,7 +32,7 @@ contract UNSnapshotClaim is IUNSnapshotClaim { // TODO: Potentially add a deadli
 
     function claim(uint128 amount, bytes32[] calldata proof) external returns (uint256 streamId) {
         require(!claimed[msg.sender], "Already claimed in this snapshot");
-        require(proof.verify(merkleRoot, keccak256(abi.encodePacked(msg.sender, amount))));
+        require(proof.verify(merkleRoot, keccak256(abi.encode(msg.sender, amount))), "Invalid proof");
 
         claimed[msg.sender] = true;
 
