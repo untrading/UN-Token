@@ -26,7 +26,7 @@ contract UNSnapshotClaimTest is Test {
         
         // Setup Addresses
         token = new MockERC20("UN", "UN", 18);
-        sablier = ISablierV2LockupLinear(0xAFb979d9afAd1aD27C5eFf4E27226E3AB9e5dCC9); // https://docs.sablier.com/contracts/v2/deployments
+        sablier = ISablierV2LockupLinear(0xB10daee1FCF62243aE27776D7a92D39dC8740f95); // https://docs.sablier.com/contracts/v2/deployments
 
         // Setup tree
         tree[0] = Claim(address(this), 1e18);
@@ -50,13 +50,19 @@ contract UNSnapshotClaimTest is Test {
         token.mint(address(claim), 2e18);
     }
 
-    function testClaim() external {
+    function test_Claim() external {
         uint256 nextStreamId = ISablierV2LockupLinear(address(sablier)).nextStreamId();
         uint256 streamId = claim.claim(tree[0].amount, m.getProof(hashedTree, 0));
+
+        assertGt(streamId, 0);
+        assertEq(streamId, nextStreamId);
+        assertEq(claim.claimed(address(this)), true);
+        assertEq(claim.streamIds(address(this)), streamId);
     }
 
     function testRevert_ImproperAmountsShouldRevert() external {
-
+        vm.expectRevert("Invalid proof");
+        claim.claim(tree[0].amount + 1, m.getProof(hashedTree, 0));
     }
 
     function testRevert_AlreadyClaimed() external {
