@@ -48,7 +48,7 @@ contract UNSnapshotClaimTest is Test {
         root = m.getRoot(data);
 
         // Deploy Claim Contract
-        snapshotClaim = new UNSnapshotClaim(address(token), root, 5 days, address(sablier), address(registry));
+        snapshotClaim = new UNSnapshotClaim(address(token), root, 4 days, address(sablier), address(registry));
         token.mint(address(snapshotClaim), 2e18);
 
         // Add (this) to the KYC registry
@@ -99,11 +99,27 @@ contract UNSnapshotClaimTest is Test {
     }
 
     function test_SablierStreamWithdraw() external {
+        uint256 streamId = snapshotClaim.claim(tree[0].amount, m.getProof(hashedTree, 0));
 
+        vm.warp(block.timestamp + 2 days);
+
+        sablier.withdraw(streamId, address(this), 0.5e18);
+
+        assertEq(token.balanceOf(address(this)), 0.5e18);
+        assertEq(sablier.streamedAmountOf(streamId), 0.5e18);
+        assertEq(sablier.withdrawableAmountOf(streamId), 0);
     }
 
     function test_SablierStreamWithdrawMax() external {
+        uint256 streamId = snapshotClaim.claim(tree[0].amount, m.getProof(hashedTree, 0));
 
+        vm.warp(block.timestamp + 2 days);
+
+        sablier.withdrawMax(streamId, address(this));
+
+        assertEq(token.balanceOf(address(this)), 0.5e18);
+        assertEq(sablier.streamedAmountOf(streamId), 0.5e18);
+        assertEq(sablier.withdrawableAmountOf(streamId), 0);
     }
 }
 
