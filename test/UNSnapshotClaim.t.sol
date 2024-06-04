@@ -48,7 +48,7 @@ contract UNSnapshotClaimTest is Test {
         root = m.getRoot(data);
 
         // Deploy Claim Contract
-        snapshotClaim = new UNSnapshotClaim(address(token), root, 4 days, address(sablier), address(registry));
+        snapshotClaim = new UNSnapshotClaim(address(token), root, 0, 4 days, address(sablier), address(registry));
         token.mint(address(snapshotClaim), 2e18);
 
         // Add (this) to the KYC registry

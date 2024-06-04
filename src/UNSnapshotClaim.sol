@@ -16,6 +16,7 @@ contract UNSnapshotClaim is IUNSnapshotClaim { // TODO: Potentially add a deadli
 
     address public immutable UN;
     bytes32 public immutable merkleRoot;
+    uint40 public immutable cliff;
     uint40 public immutable vestingPeriod;
     address public immutable sablier;
     address public immutable registry;
@@ -23,9 +24,10 @@ contract UNSnapshotClaim is IUNSnapshotClaim { // TODO: Potentially add a deadli
     mapping(address => bool) public claimed; // TODO: Potentially adopt a bitmap - like in MerkleDistributor
     mapping(address => uint256) public streamIds;
 
-    constructor(address _UN, bytes32 _merkleRoot, uint40 _vestingPeriod, address _sablier, address _registry) {
+    constructor(address _UN, bytes32 _merkleRoot, uint40 _cliff, uint40 _vestingPeriod, address _sablier, address _registry) {
         UN = _UN;
         merkleRoot = _merkleRoot;
+        cliff = _cliff;
         vestingPeriod = _vestingPeriod;
         sablier = _sablier;
         registry = _registry;
@@ -46,7 +48,7 @@ contract UNSnapshotClaim is IUNSnapshotClaim { // TODO: Potentially add a deadli
             asset: IERC20(UN),
             totalAmount: amount,
             cancelable: false,
-            durations: LockupLinear.Durations({ cliff: 0, total: vestingPeriod }),
+            durations: LockupLinear.Durations({ cliff: cliff, total: vestingPeriod }),
             broker: Broker({ account: address(0), fee: ud60x18(0) })
         });
 
