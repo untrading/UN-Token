@@ -8,6 +8,7 @@ import { MockERC20 } from "solmate/test/utils/mocks/MockERC20.sol";
 import { ISablierV2LockupLinear } from "@sablier/v2-core/src/interfaces/ISablierV2LockupLinear.sol";
 
 import { UNSnapshotClaim } from "../src/UNSnapshotClaim.sol";
+import { KYCRegistry } from "../src/KYCRegistry.sol";
 
 contract UNSnapshotClaimTest is Test {
     Merkle private m; // Library
@@ -18,7 +19,7 @@ contract UNSnapshotClaimTest is Test {
     bytes32[] private hashedTree;
     bytes32 private root;
     ISablierV2LockupLinear private sablier;
-
+    KYCRegistry private registry;
 
     function setUp() external {
         // Fork mainnet
@@ -27,6 +28,7 @@ contract UNSnapshotClaimTest is Test {
         // Setup Addresses
         token = new MockERC20("UN", "UN", 18);
         sablier = ISablierV2LockupLinear(0xB10daee1FCF62243aE27776D7a92D39dC8740f95); // https://docs.sablier.com/contracts/v2/deployments
+        registry = new KYCRegistry();
 
         // Setup tree
         tree[0] = Claim(address(this), 1e18);
@@ -46,8 +48,11 @@ contract UNSnapshotClaimTest is Test {
         root = m.getRoot(data);
 
         // Deploy Claim Contract
-        snapshotClaim = new UNSnapshotClaim(address(token), root, 5 days, address(sablier));
+        snapshotClaim = new UNSnapshotClaim(address(token), root, 5 days, address(sablier), address(registry));
         token.mint(address(snapshotClaim), 2e18);
+
+        // Add (this) to the KYC registry
+        registry.changeKYCStatus(address(this), true);
     }
 
     function test_Claim() external {
@@ -84,6 +89,13 @@ contract UNSnapshotClaimTest is Test {
         bytes32[] memory proof = m.getProof(hashedTree, 1);
         vm.expectRevert("Invalid proof");
         snapshotClaim.claim(tree[0].amount, proof);
+    }
+
+    function testRevert_NotKYCVerified() external {
+        bytes32[] memory proof = m.getProof(hashedTree, 1);
+        vm.expectRevert("Not KYC verified");
+        vm.prank(address(0xB0B));
+        snapshotClaim.claim(tree[1].amount, proof);
     }
 
     function test_SablierStreamWithdraw() external {
