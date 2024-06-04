@@ -28,4 +28,4 @@ forge test
 
 ## Licensing
 
-The contracts in this repo are unlicensed.
+The contracts in this repo are licensed under GPL-3.0.

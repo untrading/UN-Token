@@ -12,7 +12,7 @@ import { UNSnapshotClaim } from "../src/UNSnapshotClaim.sol";
 contract UNSnapshotClaimTest is Test {
     Merkle private m; // Library
 
-    UNSnapshotClaim private claim;
+    UNSnapshotClaim private snapshotClaim;
     MockERC20 private token;
     Claim[3] private tree;
     bytes32[] private hashedTree;
@@ -46,34 +46,51 @@ contract UNSnapshotClaimTest is Test {
         root = m.getRoot(data);
 
         // Deploy Claim Contract
-        claim = new UNSnapshotClaim(address(token), root, 5 days, address(sablier));
-        token.mint(address(claim), 2e18);
+        snapshotClaim = new UNSnapshotClaim(address(token), root, 5 days, address(sablier));
+        token.mint(address(snapshotClaim), 2e18);
     }
 
     function test_Claim() external {
         uint256 nextStreamId = ISablierV2LockupLinear(address(sablier)).nextStreamId();
-        uint256 streamId = claim.claim(tree[0].amount, m.getProof(hashedTree, 0));
+        uint256 streamId = snapshotClaim.claim(tree[0].amount, m.getProof(hashedTree, 0));
 
         assertGt(streamId, 0);
         assertEq(streamId, nextStreamId);
-        assertEq(claim.claimed(address(this)), true);
-        assertEq(claim.streamIds(address(this)), streamId);
+        assertEq(snapshotClaim.claimed(address(this)), true);
+        assertEq(snapshotClaim.streamIds(address(this)), streamId);
     }
 
     function testRevert_ImproperAmountsShouldRevert() external {
+        bytes32[] memory proof = m.getProof(hashedTree, 0);
         vm.expectRevert("Invalid proof");
-        claim.claim(tree[0].amount + 1, m.getProof(hashedTree, 0));
+        snapshotClaim.claim(tree[0].amount + 1, proof);
+
+        vm.expectRevert("Invalid proof");
+        snapshotClaim.claim(tree[0].amount - 1, proof);
+
+        vm.expectRevert("Invalid proof");
+        snapshotClaim.claim(0, proof);
     }
 
     function testRevert_AlreadyClaimed() external {
+        bytes32[] memory proof = m.getProof(hashedTree, 0);
+        snapshotClaim.claim(tree[0].amount, proof);
+
+        vm.expectRevert("Already claimed in this snapshot");
+        snapshotClaim.claim(tree[0].amount, proof);
+    }
+
+    function testRevert_InvalidProof() external {
+        bytes32[] memory proof = m.getProof(hashedTree, 1);
+        vm.expectRevert("Invalid proof");
+        snapshotClaim.claim(tree[0].amount, proof);
+    }
+
+    function test_SablierStreamWithdraw() external {
 
     }
 
-    function testSablierStreamWithdraw() external {
-
-    }
-
-    function testSablierStreamWithdrawMax() external {
+    function test_SablierStreamWithdrawMax() external {
 
     }
 }
