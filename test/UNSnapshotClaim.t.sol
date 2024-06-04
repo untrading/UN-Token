@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.19;
 
-import { Test } from "forge-std/Test.sol";
-import { Merkle } from "murky/src/Merkle.sol";
+import {Test} from "forge-std/Test.sol";
+import {Merkle} from "murky/src/Merkle.sol";
 
-import { MockERC20 } from "solmate/test/utils/mocks/MockERC20.sol";
-import { ISablierV2LockupLinear } from "@sablier/v2-core/src/interfaces/ISablierV2LockupLinear.sol";
+import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
+import {ISablierV2LockupLinear} from "@sablier/v2-core/src/interfaces/ISablierV2LockupLinear.sol";
 
-import { UNSnapshotClaim } from "../src/UNSnapshotClaim.sol";
-import { KYCRegistry } from "../src/KYCRegistry.sol";
+import {UNSnapshotClaim} from "../src/UNSnapshotClaim.sol";
+import {KYCRegistry} from "../src/KYCRegistry.sol";
 
 contract UNSnapshotClaimTest is Test {
     Merkle private m; // Library
@@ -23,8 +23,8 @@ contract UNSnapshotClaimTest is Test {
 
     function setUp() external {
         // Fork mainnet
-        vm.createSelectFork({ urlOrAlias: "mainnet" });
-        
+        vm.createSelectFork({urlOrAlias: "mainnet"});
+
         // Setup Addresses
         token = new MockERC20("UN", "UN", 18);
         sablier = ISablierV2LockupLinear(0xB10daee1FCF62243aE27776D7a92D39dC8740f95); // https://docs.sablier.com/contracts/v2/deployments
@@ -48,7 +48,15 @@ contract UNSnapshotClaimTest is Test {
         root = m.getRoot(data);
 
         // Deploy Claim Contract
-        snapshotClaim = new UNSnapshotClaim(address(token), root, 0, 4 days, address(sablier), address(registry));
+        snapshotClaim = new UNSnapshotClaim(
+            address(token), 
+            root, 
+            uint40(block.timestamp) + 8 days, 
+            0, 
+            4 days, 
+            address(sablier), 
+            address(registry)
+        );
         token.mint(address(snapshotClaim), 2e18);
 
         // Add (this) to the KYC registry
@@ -120,6 +128,38 @@ contract UNSnapshotClaimTest is Test {
         assertEq(token.balanceOf(address(this)), 0.5e18);
         assertEq(sablier.streamedAmountOf(streamId), 0.5e18);
         assertEq(sablier.withdrawableAmountOf(streamId), 0);
+    }
+
+    function testRevert_DeadlineMet() external {
+        bytes32[] memory proof = m.getProof(hashedTree, 0);
+        vm.warp(block.timestamp + 8 days);
+
+        vm.expectRevert("Claim ended");
+        snapshotClaim.claim(tree[0].amount, proof);
+    }
+
+    function testRevert_DeadlineNotYetMet() external {
+        vm.expectRevert("Claim ongoing");
+        snapshotClaim.withdraw();
+
+        vm.warp(block.timestamp + 7 days);
+        vm.expectRevert("Claim ongoing");
+        snapshotClaim.withdraw();
+    }
+
+    function testRevert_UnauthorizedWithdraw() external {
+        vm.expectRevert("UNAUTHORIZED");
+        vm.prank(address(0xB0B));
+        snapshotClaim.withdraw();
+    }
+
+    function test_WithdrawFunds() external {
+        vm.warp(block.timestamp + 8 days + 1);
+
+        snapshotClaim.withdraw();
+
+        assertEq(token.balanceOf(address(this)), 2e18);
+        assertEq(token.balanceOf(address(snapshotClaim)), 0);
     }
 }
 

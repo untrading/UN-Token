@@ -5,7 +5,10 @@ import "solmate/tokens/ERC20.sol";
 import "solmate/auth/Owned.sol";
 
 contract UN is ERC20, Owned {
-    constructor(string memory _name, string memory _symbol, uint8 _decimals) ERC20(_name, _symbol, _decimals) Owned(msg.sender) {}
+    constructor(string memory _name, string memory _symbol, uint8 _decimals)
+        ERC20(_name, _symbol, _decimals)
+        Owned(msg.sender)
+    {}
 
     function mint(address to, uint256 amount) public onlyOwner {
         _mint(to, amount);
