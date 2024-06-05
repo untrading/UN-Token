@@ -42,4 +42,16 @@ contract KYCRegistryTest is Test {
 
         assertEq(registry.isKYCVerified(address(bob)), true);
     }
+
+    function test_verifyBatch() external {
+        address[] memory wallets = new address[](2);
+
+        wallets[0] = address(bob);
+        wallets[1] = address(0xA17CE);
+
+        registry.verifyBatch(wallets);
+
+        assertEq(registry.isKYCVerified(address(bob)), true);
+        assertEq(registry.isKYCVerified(address(0xA17CE)), true);
+    }
 }

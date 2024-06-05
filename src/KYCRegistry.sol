@@ -21,11 +21,17 @@ contract KYCRegistry is Owned {
         emit AuthorizerStatus(authorizee, status);
     }
 
-    function changeKYCStatus(address wallet, bool status) external {
+    function changeKYCStatus(address wallet, bool status) public {
         require(isAuthorizer[msg.sender], "UNAUTHORIZED");
 
         isKYCVerified[wallet] = status;
 
         emit KYCStatus(wallet, status);
+    }
+
+    function verifyBatch(address[] memory wallets) external {
+        for (uint i = 0; i < wallets.length; i++) {
+            changeKYCStatus(wallets[i], true);
+        }
     }
 }
