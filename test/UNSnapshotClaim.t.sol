@@ -27,7 +27,7 @@ contract UNSnapshotClaimTest is Test {
 
         // Setup Addresses
         token = new MockERC20("UN", "UN", 18);
-        sablier = ISablierV2LockupLinear(0xB10daee1FCF62243aE27776D7a92D39dC8740f95); // https://docs.sablier.com/contracts/v2/deployments
+        sablier = ISablierV2LockupLinear(0xAFb979d9afAd1aD27C5eFf4E27226E3AB9e5dCC9); // https://docs.sablier.com/contracts/v2/deployments
         registry = new KYCRegistry();
 
         // Setup tree

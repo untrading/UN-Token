@@ -8,14 +8,14 @@ import "solmate/auth/Owned.sol";
 
 import {ISablierV2LockupLinear} from "@sablier/v2-core/src/interfaces/ISablierV2LockupLinear.sol";
 import {Broker, LockupLinear} from "@sablier/v2-core/src/types/DataTypes.sol";
-import {ud60x18} from "@sablier/v2-core/src/types/Math.sol";
-import {IERC20} from "@sablier/v2-core/src/types/Tokens.sol";
+import {ud60x18} from "@prb/math/src/UD60x18.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {MerkleProofLib} from "solmate/utils/MerkleProofLib.sol";
 
 contract UNSnapshotClaim is
     IUNSnapshotClaim,
-    Owned // TODO: Potentially add a deadline, add tests and scripts
+    Owned
 {
     using MerkleProofLib for bytes32[];
 
@@ -54,6 +54,10 @@ contract UNSnapshotClaim is
         IERC20(UN).approve(address(sablier), type(uint256).max);
     }
 
+    function _getVestingPeriodAndAmount() internal returns (uint256 vp, uint256 amt) { // Use enum to determine which distribution the user picked
+
+    }
+
     function claim(uint128 amount, bytes32[] calldata proof) external returns (uint256 streamId) {
         require(deadline > block.timestamp, "Claim ended");
         require(!claimed[msg.sender], "Already claimed in this snapshot");
@@ -68,6 +72,7 @@ contract UNSnapshotClaim is
             asset: IERC20(UN),
             totalAmount: amount,
             cancelable: false,
+            transferable: false,
             durations: LockupLinear.Durations({cliff: cliff, total: vestingPeriod}),
             broker: Broker({account: address(0), fee: ud60x18(0)})
         });
