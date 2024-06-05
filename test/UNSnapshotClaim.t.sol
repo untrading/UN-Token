@@ -53,7 +53,7 @@ contract UNSnapshotClaimTest is Test {
             root, 
             uint40(block.timestamp) + 8 days, 
             0, 
-            4 days, 
+            4 days, // Important to note this is the total, which includes the cliff duration
             address(sablier), 
             address(registry)
         );
@@ -128,6 +128,30 @@ contract UNSnapshotClaimTest is Test {
         assertEq(token.balanceOf(address(this)), 0.5e18);
         assertEq(sablier.streamedAmountOf(streamId), 0.5e18);
         assertEq(sablier.withdrawableAmountOf(streamId), 0);
+    }
+
+    function test_SablierCliff() external {
+        snapshotClaim = new UNSnapshotClaim(
+            address(token), 
+            root, 
+            uint40(block.timestamp) + 8 days, 
+            1 days, 
+            4 days,
+            address(sablier), 
+            address(registry)
+        );
+        token.mint(address(snapshotClaim), 2e18);
+
+        uint256 streamId = snapshotClaim.claim(tree[0].amount, m.getProof(hashedTree, 0));
+
+        vm.warp(block.timestamp + 12 hours);
+        assertEq(sablier.withdrawableAmountOf(streamId), 0);
+
+        vm.warp(block.timestamp + 12 hours);
+        assertEq(sablier.withdrawableAmountOf(streamId), tree[0].amount / 4); // 1/4 will be unlocked at cliff end, as the stream totals 4 days, 1 day would be cliff and 3 would be linearly streamed.
+
+        vm.warp(block.timestamp + 24 hours);
+        assertEq(sablier.withdrawableAmountOf(streamId), tree[0].amount / 2); // 1/2 after a day as 2 days have elapsed
     }
 
     function testRevert_DeadlineMet() external {
