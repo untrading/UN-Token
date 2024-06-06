@@ -1,3 +1,4 @@
-@sablier/v2-core=node_modules/@sablier/v2-core/
-@sablier/v2-periphery=lib/v2-periphery
-@prb/math/=lib/prb-math/
+@sablier/v2-core/=node_modules/@sablier/v2-core/
+@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
+@prb/math/=node_modules/@prb/math/
+solmate/=node_modules/solmate/src/

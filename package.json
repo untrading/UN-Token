@@ -1,1 +1,1 @@
-{ "dependencies": { "@sablier/v2-core": "^1.1.2" } }
+{ "dependencies": { "@sablier/v2-core": "^1.1.2", "solmate": "^6.2.0" } }
