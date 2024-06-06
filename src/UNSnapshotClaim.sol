@@ -68,7 +68,7 @@ contract UNSnapshotClaim is
         require(deadline > block.timestamp, "Claim ended");
         require(!claimed[msg.sender], "Already claimed in this snapshot");
         require(KYCRegistry(registry).isKYCVerified(msg.sender), "Not KYC verified");
-        require(proof.verify(merkleRoot, keccak256(abi.encode(msg.sender, amount))), "Invalid proof");
+        require(proof.verify(merkleRoot, keccak256(bytes.concat(keccak256(abi.encode(msg.sender, amount))))), "Invalid proof"); // OZ/merkle-tree & murky script
 
         claimed[msg.sender] = true;
 

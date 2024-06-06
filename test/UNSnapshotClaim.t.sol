@@ -41,9 +41,9 @@ contract UNSnapshotClaimTest is Test {
         m = new Merkle();
 
         bytes32[] memory data = new bytes32[](3);
-        data[0] = keccak256(abi.encode(tree[0]));
-        data[1] = keccak256(abi.encode(tree[1]));
-        data[2] = keccak256(abi.encode(tree[2]));
+        data[0] = keccak256(bytes.concat(keccak256(abi.encode(tree[0]))));
+        data[1] = keccak256(bytes.concat(keccak256(abi.encode(tree[1]))));
+        data[2] = keccak256(bytes.concat(keccak256(abi.encode(tree[2]))));
 
         hashedTree = data;
 
