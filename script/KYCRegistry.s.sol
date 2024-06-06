@@ -9,7 +9,9 @@ contract DeployRegistry is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        new KYCRegistry();
+        KYCRegistry registry = new KYCRegistry();
+
+        // registry.authorizeAddress(0x..., true);
 
         vm.stopBroadcast();
     }
