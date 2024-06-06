@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import {IUNSnapshotClaim} from "./interfaces/IUNSnapshotClaim.sol";
 import {KYCRegistry} from "./KYCRegistry.sol";
+import {Stake} from "../src/interfaces/IUNSnapshotClaim.sol";
 
 import "solmate/auth/Owned.sol";
 
@@ -54,11 +55,16 @@ contract UNSnapshotClaim is
         IERC20(UN).approve(address(sablier), type(uint256).max);
     }
 
-    function _getVestingPeriodAndAmount() internal returns (uint256 vp, uint256 amt) { // Use enum to determine which distribution the user picked
+    function _getVestingPeriodAndAmount(Stake _stake, uint128 amount) internal view returns (uint40 vp, uint128 amt) {
+        if (_stake == Stake.None) {
+            return (1, amount); // Minimal claim time
+        }
 
+        vp = vestingPeriod * uint8(_stake);
+        amt = ud60x18(amount).mul(ud60x18(0.15e18).mul(ud60x18(1.618e18).powu(uint8(_stake) - 1)).add(ud60x18(1e18))).intoUint128(); // amount * ((0.15 * 1.618^(tier)) + 1) //* Clean this up in a future release
     }
 
-    function claim(uint128 amount, bytes32[] calldata proof) external returns (uint256 streamId) {
+    function claim(uint128 amount, Stake stake, bytes32[] calldata proof) external returns (uint256 streamId) {
         require(deadline > block.timestamp, "Claim ended");
         require(!claimed[msg.sender], "Already claimed in this snapshot");
         require(KYCRegistry(registry).isKYCVerified(msg.sender), "Not KYC verified");
@@ -66,14 +72,16 @@ contract UNSnapshotClaim is
 
         claimed[msg.sender] = true;
 
+        (uint40 vp, uint128 amt) = _getVestingPeriodAndAmount(stake, amount);
+
         LockupLinear.CreateWithDurations memory params = LockupLinear.CreateWithDurations({
             sender: address(this),
             recipient: msg.sender,
             asset: IERC20(UN),
-            totalAmount: amount,
+            totalAmount: amt,
             cancelable: false,
             transferable: false,
-            durations: LockupLinear.Durations({cliff: cliff, total: vestingPeriod}),
+            durations: LockupLinear.Durations({cliff: cliff, total: vp}),
             broker: Broker({account: address(0), fee: ud60x18(0)})
         });
 

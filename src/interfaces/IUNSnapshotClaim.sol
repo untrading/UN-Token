@@ -1,6 +1,14 @@
 // SPDX-LICENSE-IDENTIFIER: GPL-3.0
 pragma solidity ^0.8.19;
 
+enum Stake {
+    None,
+    TierOne,
+    TierTwo,
+    TierThree,
+    TierFour
+}
+
 interface IUNSnapshotClaim {
     event Claimed(address indexed account, uint256 indexed streamId, uint128 amount);
 
@@ -16,5 +24,7 @@ interface IUNSnapshotClaim {
 
     function streamIds(address) external view returns (uint256);
 
-    function claim(uint128 amount, bytes32[] calldata proof) external returns (uint256 streamId);
+    function claim(uint128 amount, Stake stake, bytes32[] calldata proof) external returns (uint256 streamId);
+
+    function withdraw() external;
 }

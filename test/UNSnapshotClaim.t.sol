@@ -10,6 +10,8 @@ import {ISablierV2LockupLinear} from "@sablier/v2-core/src/interfaces/ISablierV2
 import {UNSnapshotClaim} from "../src/UNSnapshotClaim.sol";
 import {KYCRegistry} from "../src/KYCRegistry.sol";
 
+import {Stake} from "../src/interfaces/IUNSnapshotClaim.sol";
+
 contract UNSnapshotClaimTest is Test {
     Merkle private m; // Library
 
@@ -63,70 +65,97 @@ contract UNSnapshotClaimTest is Test {
         registry.changeKYCStatus(address(this), true);
     }
 
-    function test_Claim() external {
-        uint256 nextStreamId = ISablierV2LockupLinear(address(sablier)).nextStreamId();
-        uint256 streamId = snapshotClaim.claim(tree[0].amount, m.getProof(hashedTree, 0));
+    function test_ClaimInstant() external {
+        uint256 nextStreamId = sablier.nextStreamId();
+        uint256 streamId = snapshotClaim.claim(tree[0].amount, Stake.None, m.getProof(hashedTree, 0));
 
         assertGt(streamId, 0);
         assertEq(streamId, nextStreamId);
         assertEq(snapshotClaim.claimed(address(this)), true);
         assertEq(snapshotClaim.streamIds(address(this)), streamId);
+
+        vm.warp(block.timestamp + 1);
+        assertEq(sablier.withdrawableAmountOf(streamId), 1e18);
+    }
+
+    function test_ClaimTiered() external {
+        uint256 nextStreamId = sablier.nextStreamId();
+        uint256 streamId = snapshotClaim.claim(tree[0].amount, Stake.TierOne, m.getProof(hashedTree, 0));
+
+        assertGt(streamId, 0);
+        assertEq(streamId, nextStreamId);
+        assertEq(snapshotClaim.claimed(address(this)), true);
+        assertEq(snapshotClaim.streamIds(address(this)), streamId);
+
+        assertEq(sablier.getEndTime(streamId), block.timestamp + 4 days);
+        assertEq(sablier.getDepositedAmount(streamId), 1e18 * 115 / 100); // 15% bonus
+    }
+
+    function test_ClaimTier4() external {
+        uint256 streamId = snapshotClaim.claim(tree[0].amount, Stake.TierFour, m.getProof(hashedTree, 0));
+
+        assertEq(sablier.getEndTime(streamId), block.timestamp + 16 days); // base (4 days) * 4
+        assertEq(sablier.getDepositedAmount(streamId), 1e18 * 1.6353701548); // 0.15 * 1.618^3
     }
 
     function testRevert_ImproperAmountsShouldRevert() external {
         bytes32[] memory proof = m.getProof(hashedTree, 0);
         vm.expectRevert("Invalid proof");
-        snapshotClaim.claim(tree[0].amount + 1, proof);
+        snapshotClaim.claim(tree[0].amount + 1, Stake.None, proof);
 
         vm.expectRevert("Invalid proof");
-        snapshotClaim.claim(tree[0].amount - 1, proof);
+        snapshotClaim.claim(tree[0].amount - 1, Stake.None, proof);
 
         vm.expectRevert("Invalid proof");
-        snapshotClaim.claim(0, proof);
+        snapshotClaim.claim(0, Stake.None, proof);
     }
 
     function testRevert_AlreadyClaimed() external {
         bytes32[] memory proof = m.getProof(hashedTree, 0);
-        snapshotClaim.claim(tree[0].amount, proof);
+        snapshotClaim.claim(tree[0].amount, Stake.None, proof);
 
         vm.expectRevert("Already claimed in this snapshot");
-        snapshotClaim.claim(tree[0].amount, proof);
+        snapshotClaim.claim(tree[0].amount, Stake.None, proof);
     }
 
     function testRevert_InvalidProof() external {
         bytes32[] memory proof = m.getProof(hashedTree, 1);
         vm.expectRevert("Invalid proof");
-        snapshotClaim.claim(tree[0].amount, proof);
+        snapshotClaim.claim(tree[0].amount, Stake.None, proof);
     }
 
     function testRevert_NotKYCVerified() external {
         bytes32[] memory proof = m.getProof(hashedTree, 1);
         vm.expectRevert("Not KYC verified");
         vm.prank(address(0xB0B));
-        snapshotClaim.claim(tree[1].amount, proof);
+        snapshotClaim.claim(tree[1].amount, Stake.None, proof);
     }
 
     function test_SablierStreamWithdraw() external {
-        uint256 streamId = snapshotClaim.claim(tree[0].amount, m.getProof(hashedTree, 0));
+        uint256 streamId = snapshotClaim.claim(tree[0].amount, Stake.TierOne, m.getProof(hashedTree, 0));
+
+        uint128 tierOneAmount = tree[0].amount * 115 / 100;
 
         vm.warp(block.timestamp + 2 days);
 
         sablier.withdraw(streamId, address(this), 0.5e18);
 
         assertEq(token.balanceOf(address(this)), 0.5e18);
-        assertEq(sablier.streamedAmountOf(streamId), 0.5e18);
-        assertEq(sablier.withdrawableAmountOf(streamId), 0);
+        assertEq(sablier.streamedAmountOf(streamId), tierOneAmount / 2);
+        assertEq(sablier.withdrawableAmountOf(streamId), (tierOneAmount / 2) - 0.5e18);
     }
 
     function test_SablierStreamWithdrawMax() external {
-        uint256 streamId = snapshotClaim.claim(tree[0].amount, m.getProof(hashedTree, 0));
+        uint256 streamId = snapshotClaim.claim(tree[0].amount, Stake.TierOne, m.getProof(hashedTree, 0));
+
+        uint128 tierOneAmount = tree[0].amount * 115 / 100;
 
         vm.warp(block.timestamp + 2 days);
 
         sablier.withdrawMax(streamId, address(this));
 
-        assertEq(token.balanceOf(address(this)), 0.5e18);
-        assertEq(sablier.streamedAmountOf(streamId), 0.5e18);
+        assertEq(token.balanceOf(address(this)), tierOneAmount / 2);
+        assertEq(sablier.streamedAmountOf(streamId), tierOneAmount / 2);
         assertEq(sablier.withdrawableAmountOf(streamId), 0);
     }
 
@@ -142,16 +171,18 @@ contract UNSnapshotClaimTest is Test {
         );
         token.mint(address(snapshotClaim), 2e18);
 
-        uint256 streamId = snapshotClaim.claim(tree[0].amount, m.getProof(hashedTree, 0));
+        uint256 streamId = snapshotClaim.claim(tree[0].amount, Stake.TierOne, m.getProof(hashedTree, 0));
+
+        uint128 tierOneAmount = tree[0].amount * 115 / 100;
 
         vm.warp(block.timestamp + 12 hours);
         assertEq(sablier.withdrawableAmountOf(streamId), 0);
 
         vm.warp(block.timestamp + 12 hours);
-        assertEq(sablier.withdrawableAmountOf(streamId), tree[0].amount / 4); // 1/4 will be unlocked at cliff end, as the stream totals 4 days, 1 day would be cliff and 3 would be linearly streamed.
+        assertEq(sablier.withdrawableAmountOf(streamId), tierOneAmount / 4); // 1/4 will be unlocked at cliff end, as the stream totals 4 days, 1 day would be cliff and 3 would be linearly streamed.
 
         vm.warp(block.timestamp + 24 hours);
-        assertEq(sablier.withdrawableAmountOf(streamId), tree[0].amount / 2); // 1/2 after a day as 2 days have elapsed
+        assertEq(sablier.withdrawableAmountOf(streamId), tierOneAmount / 2); // 1/2 after a day as 2 days have elapsed
     }
 
     function testRevert_DeadlineMet() external {
@@ -159,7 +190,7 @@ contract UNSnapshotClaimTest is Test {
         vm.warp(block.timestamp + 8 days);
 
         vm.expectRevert("Claim ended");
-        snapshotClaim.claim(tree[0].amount, proof);
+        snapshotClaim.claim(tree[0].amount, Stake.None, proof);
     }
 
     function testRevert_DeadlineNotYetMet() external {
