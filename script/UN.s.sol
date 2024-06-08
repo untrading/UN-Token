@@ -9,7 +9,7 @@ contract DeployUNToken is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        new UN("UN Token", "UN", 18);
+        UN token = new UN("UN Token", "UN", 18);
 
         vm.stopBroadcast();
     }
