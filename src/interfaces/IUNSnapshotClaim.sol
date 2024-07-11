@@ -14,17 +14,13 @@ interface IUNSnapshotClaim {
 
     function UN() external view returns (address);
 
-    function merkleRoot() external view returns (bytes32);
-
-    function vestingPeriod() external view returns (uint40);
-
     function sablier() external view returns (address);
 
-    function claimed(address) external view returns (bool);
+    function claimed(uint256, address) external view returns (bool);
 
-    function streamIds(address) external view returns (uint256);
+    function streamIds(uint256, address) external view returns (uint256);
 
-    function claim(uint128 amount, Stake stake, bytes32[] calldata proof) external returns (uint256 streamId);
+    function claim(uint256 batch, uint128 amount, Stake stake, bytes32[] calldata proof) external returns (uint256 streamId);
 
-    function withdraw() external;
+    function withdraw(uint256 batch) external;
 }

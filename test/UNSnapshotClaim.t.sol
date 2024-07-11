@@ -22,6 +22,7 @@ contract UNSnapshotClaimTest is Test {
     bytes32 private root;
     ISablierV2LockupLinear private sablier;
     KYCRegistry private registry;
+    uint256 private batchId;
 
     function setUp() external {
         // Fork mainnet
@@ -56,10 +57,12 @@ contract UNSnapshotClaimTest is Test {
             uint40(block.timestamp) + 8 days, 
             0, 
             4 days, // Important to note this is the total, which includes the cliff duration
+            2e18,
             address(sablier), 
             address(registry)
         );
         token.mint(address(snapshotClaim), 2e18);
+        batchId = 1;
 
         // Add (this) to the KYC registry
         registry.changeKYCStatus(address(this), true);
@@ -67,12 +70,12 @@ contract UNSnapshotClaimTest is Test {
 
     function test_ClaimInstant() external {
         uint256 nextStreamId = sablier.nextStreamId();
-        uint256 streamId = snapshotClaim.claim(tree[0].amount, Stake.None, m.getProof(hashedTree, 0));
+        uint256 streamId = snapshotClaim.claim(batchId, tree[0].amount, Stake.None, m.getProof(hashedTree, 0));
 
         assertGt(streamId, 0);
         assertEq(streamId, nextStreamId);
-        assertEq(snapshotClaim.claimed(address(this)), true);
-        assertEq(snapshotClaim.streamIds(address(this)), streamId);
+        assertEq(snapshotClaim.claimed(batchId, address(this)), true);
+        assertEq(snapshotClaim.streamIds(batchId, address(this)), streamId);
 
         vm.warp(block.timestamp + 1);
         assertEq(sablier.withdrawableAmountOf(streamId), 1e18);
@@ -80,19 +83,19 @@ contract UNSnapshotClaimTest is Test {
 
     function test_ClaimTiered() external {
         uint256 nextStreamId = sablier.nextStreamId();
-        uint256 streamId = snapshotClaim.claim(tree[0].amount, Stake.TierOne, m.getProof(hashedTree, 0));
+        uint256 streamId = snapshotClaim.claim(batchId, tree[0].amount, Stake.TierOne, m.getProof(hashedTree, 0));
 
         assertGt(streamId, 0);
         assertEq(streamId, nextStreamId);
-        assertEq(snapshotClaim.claimed(address(this)), true);
-        assertEq(snapshotClaim.streamIds(address(this)), streamId);
+        assertEq(snapshotClaim.claimed(batchId, address(this)), true);
+        assertEq(snapshotClaim.streamIds(batchId, address(this)), streamId);
 
         assertEq(sablier.getEndTime(streamId), block.timestamp + 4 days);
         assertEq(sablier.getDepositedAmount(streamId), 1e18 * 115 / 100); // 15% bonus
     }
 
     function test_ClaimTier4() external {
-        uint256 streamId = snapshotClaim.claim(tree[0].amount, Stake.TierFour, m.getProof(hashedTree, 0));
+        uint256 streamId = snapshotClaim.claim(batchId, tree[0].amount, Stake.TierFour, m.getProof(hashedTree, 0));
 
         assertEq(sablier.getEndTime(streamId), block.timestamp + 16 days); // base (4 days) * 4
         assertEq(sablier.getDepositedAmount(streamId), 1e18 * 1.6353701548); // 0.15 * 1.618^3
@@ -101,38 +104,38 @@ contract UNSnapshotClaimTest is Test {
     function testRevert_ImproperAmountsShouldRevert() external {
         bytes32[] memory proof = m.getProof(hashedTree, 0);
         vm.expectRevert("Invalid proof");
-        snapshotClaim.claim(tree[0].amount + 1, Stake.None, proof);
+        snapshotClaim.claim(batchId, tree[0].amount + 1, Stake.None, proof);
 
         vm.expectRevert("Invalid proof");
-        snapshotClaim.claim(tree[0].amount - 1, Stake.None, proof);
+        snapshotClaim.claim(batchId, tree[0].amount - 1, Stake.None, proof);
 
         vm.expectRevert("Invalid proof");
-        snapshotClaim.claim(0, Stake.None, proof);
+        snapshotClaim.claim(batchId, 0, Stake.None, proof);
     }
 
     function testRevert_AlreadyClaimed() external {
         bytes32[] memory proof = m.getProof(hashedTree, 0);
-        snapshotClaim.claim(tree[0].amount, Stake.None, proof);
+        snapshotClaim.claim(batchId, tree[0].amount, Stake.None, proof);
 
         vm.expectRevert("Already claimed in this snapshot");
-        snapshotClaim.claim(tree[0].amount, Stake.None, proof);
+        snapshotClaim.claim(batchId, tree[0].amount, Stake.None, proof);
     }
 
     function testRevert_InvalidProof() external {
         bytes32[] memory proof = m.getProof(hashedTree, 1);
         vm.expectRevert("Invalid proof");
-        snapshotClaim.claim(tree[0].amount, Stake.None, proof);
+        snapshotClaim.claim(batchId, tree[0].amount, Stake.None, proof);
     }
 
     function testRevert_NotKYCVerified() external {
         bytes32[] memory proof = m.getProof(hashedTree, 1);
         vm.expectRevert("Not KYC verified");
         vm.prank(address(0xB0B));
-        snapshotClaim.claim(tree[1].amount, Stake.None, proof);
+        snapshotClaim.claim(batchId, tree[1].amount, Stake.None, proof);
     }
 
     function test_SablierStreamWithdraw() external {
-        uint256 streamId = snapshotClaim.claim(tree[0].amount, Stake.TierOne, m.getProof(hashedTree, 0));
+        uint256 streamId = snapshotClaim.claim(batchId, tree[0].amount, Stake.TierOne, m.getProof(hashedTree, 0));
 
         uint128 tierOneAmount = tree[0].amount * 115 / 100;
 
@@ -146,7 +149,7 @@ contract UNSnapshotClaimTest is Test {
     }
 
     function test_SablierStreamWithdrawMax() external {
-        uint256 streamId = snapshotClaim.claim(tree[0].amount, Stake.TierOne, m.getProof(hashedTree, 0));
+        uint256 streamId = snapshotClaim.claim(batchId, tree[0].amount, Stake.TierOne, m.getProof(hashedTree, 0));
 
         uint128 tierOneAmount = tree[0].amount * 115 / 100;
 
@@ -166,12 +169,13 @@ contract UNSnapshotClaimTest is Test {
             uint40(block.timestamp) + 8 days, 
             1 days, 
             4 days,
+            2e18,
             address(sablier), 
             address(registry)
         );
         token.mint(address(snapshotClaim), 2e18);
 
-        uint256 streamId = snapshotClaim.claim(tree[0].amount, Stake.TierOne, m.getProof(hashedTree, 0));
+        uint256 streamId = snapshotClaim.claim(batchId, tree[0].amount, Stake.TierOne, m.getProof(hashedTree, 0));
 
         uint128 tierOneAmount = tree[0].amount * 115 / 100;
 
@@ -189,29 +193,29 @@ contract UNSnapshotClaimTest is Test {
         bytes32[] memory proof = m.getProof(hashedTree, 0);
         vm.warp(block.timestamp + 8 days);
 
-        vm.expectRevert("Claim ended");
-        snapshotClaim.claim(tree[0].amount, Stake.None, proof);
+        vm.expectRevert("Claim ended or invalid batch");
+        snapshotClaim.claim(batchId, tree[0].amount, Stake.None, proof);
     }
 
     function testRevert_DeadlineNotYetMet() external {
         vm.expectRevert("Claim ongoing");
-        snapshotClaim.withdraw();
+        snapshotClaim.withdraw(batchId);
 
         vm.warp(block.timestamp + 7 days);
         vm.expectRevert("Claim ongoing");
-        snapshotClaim.withdraw();
+        snapshotClaim.withdraw(batchId);
     }
 
     function testRevert_UnauthorizedWithdraw() external {
         vm.expectRevert("UNAUTHORIZED");
         vm.prank(address(0xB0B));
-        snapshotClaim.withdraw();
+        snapshotClaim.withdraw(batchId);
     }
 
     function test_WithdrawFunds() external {
         vm.warp(block.timestamp + 8 days + 1);
 
-        snapshotClaim.withdraw();
+        snapshotClaim.withdraw(batchId);
 
         assertEq(token.balanceOf(address(this)), 2e18);
         assertEq(token.balanceOf(address(snapshotClaim)), 0);
