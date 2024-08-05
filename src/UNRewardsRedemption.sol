@@ -23,8 +23,8 @@ contract UNRewardsRedemption is
     address public immutable UN;
     bytes32 public merkleRoot;
 
-    uint40 public immutable cliff; // in seconds
-    uint40 public immutable vestingPeriod; // in seconds
+    uint40 public cliff; // in seconds
+    uint40 public vestingPeriod; // in seconds
 
     address public immutable sablier;
     address public immutable registry;
@@ -91,13 +91,18 @@ contract UNRewardsRedemption is
 
         streamIds[msg.sender].push(streamId);
 
-        emit Claimed(msg.sender, streamId, amount);
+        emit Claimed(msg.sender, streamId, claimableAmount);
     }
 
     function updateRoot(bytes32 newMerkleRoot) external onlyOwner {
         merkleRoot = newMerkleRoot;
 
         IERC20(UN).transfer(msg.sender, IERC20(UN).balanceOf(address(this)));
+    }
+
+    function updateVesting(uint40 clf, uint40 vp) external onlyOwner {
+        cliff = clf;
+        vestingPeriod = vp;
     }
 }
 

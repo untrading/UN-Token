@@ -19,6 +19,7 @@ contract UNRewardsRedemptionTest is Test {
     MockERC20 private token;
     Claim[3] private tree;
     bytes32[] private hashedTree;
+    bytes32[] private data;
     bytes32 private root;
     ISablierV2LockupLinear private sablier;
     KYCRegistry private registry;
@@ -40,7 +41,7 @@ contract UNRewardsRedemptionTest is Test {
         // Create proof
         m = new Merkle();
 
-        bytes32[] memory data = new bytes32[](3);
+        data = new bytes32[](3);
         data[0] = keccak256(bytes.concat(keccak256(abi.encode(tree[0]))));
         data[1] = keccak256(bytes.concat(keccak256(abi.encode(tree[1]))));
         data[2] = keccak256(bytes.concat(keccak256(abi.encode(tree[2]))));
@@ -95,6 +96,21 @@ contract UNRewardsRedemptionTest is Test {
 
         assertEq(sablier.getEndTime(streamId), block.timestamp + 16 days); // base (4 days) * 4
         assertEq(sablier.getDepositedAmount(streamId), 1e18 * 1.6353701548); // 0.15 * 1.618^3
+    }
+
+    function test_SubsequentClaim() external {
+        snapshotClaim.claim(tree[0].amount, Stake.None, m.getProof(hashedTree, 0));
+
+        tree[0] = Claim(address(this), 1.5e18);
+        data[0] = keccak256(bytes.concat(keccak256(abi.encode(tree[0]))));
+        root = m.getRoot(data);
+
+        snapshotClaim.updateRoot(root);
+        token.mint(address(snapshotClaim), 1e18); // Need to re-fund the contract after root update
+
+        uint256 streamId = snapshotClaim.claim(tree[0].amount, Stake.None, m.getProof(hashedTree, 0));
+        vm.warp(block.timestamp + 1);
+        assertEq(sablier.withdrawableAmountOf(streamId), 0.5e18);
     }
 
     function testRevert_ImproperAmountsShouldRevert() external {
@@ -183,37 +199,29 @@ contract UNRewardsRedemptionTest is Test {
         assertEq(sablier.withdrawableAmountOf(streamId), tierOneAmount / 2); // 1/2 after a day as 2 days have elapsed
     }
 
-    // function testRevert_DeadlineMet() external {
-    //     bytes32[] memory proof = m.getProof(hashedTree, 0);
-    //     vm.warp(block.timestamp + 8 days);
+    function testRevert_UnauthorizedRootUpdate() external {
+        vm.expectRevert("UNAUTHORIZED");
+        vm.prank(address(0xB0B));
+        snapshotClaim.updateRoot(root);
 
-    //     vm.expectRevert("Claim ended");
-    //     snapshotClaim.claim(tree[0].amount, Stake.None, proof);
-    // }
+        vm.expectRevert("UNAUTHORIZED");
+        vm.prank(address(0xB0B));
+        snapshotClaim.updateVesting(10, 8 days);
+    }
 
-    // function testRevert_DeadlineNotYetMet() external {
-    //     vm.expectRevert("Claim ongoing");
-    //     snapshotClaim.withdraw();
+    function test_UpdateRoot() external {
+        snapshotClaim.updateRoot(root);
 
-    //     vm.warp(block.timestamp + 7 days);
-    //     vm.expectRevert("Claim ongoing");
-    //     snapshotClaim.withdraw();
-    // }
+        assertEq(token.balanceOf(address(this)), 2e18);
+        assertEq(token.balanceOf(address(snapshotClaim)), 0);
+    }
 
-    // function testRevert_UnauthorizedWithdraw() external {
-    //     vm.expectRevert("UNAUTHORIZED");
-    //     vm.prank(address(0xB0B));
-    //     snapshotClaim.withdraw();
-    // }
+    function test_UpdateVesting() external {
+        snapshotClaim.updateVesting(10, 8 days);
 
-    // function test_WithdrawFunds() external {
-    //     vm.warp(block.timestamp + 8 days + 1);
-
-    //     snapshotClaim.withdraw();
-
-    //     assertEq(token.balanceOf(address(this)), 2e18);
-    //     assertEq(token.balanceOf(address(snapshotClaim)), 0);
-    // }
+        assertEq(snapshotClaim.cliff(), 10);
+        assertEq(snapshotClaim.vestingPeriod(), 8 days);
+    }
 }
 
 struct Claim {
