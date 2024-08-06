@@ -29,7 +29,7 @@ contract UNRewardsRedemption is
     address public immutable sablier;
     address public immutable registry;
 
-    mapping(address => uint128) public claimedAmount; // TODO: Potentially adopt a bitmap - like in MerkleDistributor
+    mapping(address => uint128) public claimedAmount;
     mapping(address => uint256[]) public streamIds;
 
     constructor(
